@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 use PKP\services\PKPSchemaService;
-use PKP\submission\SubmissionFile;
+use PKP\submissionFile\SubmissionFile;
 
 class OMPv3_3_0UpgradeMigration extends Migration
 {
