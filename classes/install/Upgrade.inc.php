@@ -882,7 +882,7 @@ class Upgrade extends Installer
      */
     public function _fileStageToPath($fileStage)
     {
-        import('lib.pkp.classes.submission.SubmissionFile');
+        import('lib.pkp.classes.submissionFile.SubmissionFile');
         static $fileStagePathMap = [
             SubmissionFile::SUBMISSION_FILE_SUBMISSION => 'submission',
             SubmissionFile::SUBMISSION_FILE_NOTE => 'note',
