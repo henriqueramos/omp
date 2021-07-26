@@ -83,7 +83,8 @@ class Upgrade extends Installer
                     ->filterByContextIds([$context->getId()])
             );
             foreach ($submissionIds as $submissionId) {
-                $submissionDir = Services::get('submissionFile')->getSubmissionDir($context->getId(), $submissionId);
+                $submissionDir = Repo::submissionFiles()
+                    ->getSubmissionDir($context->getId(), $submissionId);
                 $rows = DB::table('submission_files')
                     ->where('submission_id', '=', $submissionId)
                     ->get();
@@ -561,10 +562,13 @@ class Upgrade extends Installer
             $noteDao->updateObject($note);
 
             // Convert any attached files
-            $submissionFilesIterator = Services::get('submissionFile')->getMany([
-                'assocTypes' => [ASSOC_TYPE_NOTE],
-                'assocIds' => [$note->getId()],
-            ]);
+            $collector = Repo::submissionFiles()
+                ->getCollector()
+                ->filterByAssoc(
+                    [ASSOC_TYPE_NOTE],
+                    [$note->getId()]
+                );
+            $submissionFilesIterator = Repo::submissionFiles()->getMany($collector);
             foreach ($submissionFilesIterator as $submissionFile) {
                 Repo::submissionFiles()
                     ->edit(
@@ -812,7 +816,8 @@ class Upgrade extends Installer
             $context = $contexts[$row->context_id];
 
             // Get existing image paths
-            $basePath = Services::get('submissionFile')->getSubmissionDir($row->context_id, $row->submission_id);
+            $basePath = Repo::submissionFiles()
+                ->getSubmissionDir($row->context_id, $row->submission_id);
             $coverPath = Config::getVar('files', 'files_dir') . '/' . $basePath . '/simple/' . $coverImage['name'];
             $coverPathInfo = pathinfo($coverPath);
             $thumbPath = Config::getVar('files', 'files_dir') . '/' . $basePath . '/simple/' . $coverImage['thumbnailName'];
