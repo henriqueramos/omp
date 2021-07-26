@@ -19,6 +19,7 @@ use APP\core\Application;
 
 use APP\facades\Repo;
 use APP\i18n\AppLocale;
+use APP\submissionFile\SubmissionFile;
 use Illuminate\Support\Facades\DB;
 use PKP\core\PKPString;
 use PKP\db\DAORegistry;
@@ -27,7 +28,6 @@ use PKP\identity\Identity;
 
 use PKP\install\Installer;
 use PKP\security\Role;
-use PKP\submission\SubmissionFile;
 
 class Upgrade extends Installer
 {
@@ -305,10 +305,9 @@ class Upgrade extends Installer
      */
     public function convertQueries()
     {
-        $submissionFileDao = DAORegistry::getDAO('SubmissionFileDAO'); /* @var $submissionFileDao SubmissionFileDAO */
-        import('lib.pkp.classes.submission.SubmissionFile');
+        import('lib.pkp.classes.submissionFile.SubmissionFile');
 
-        $filesResult = $submissionFileDao->retrieve(
+        $filesResult = DB::select(
             'SELECT DISTINCT sf.file_id, sf.assoc_type, sf.assoc_id, sf.submission_id, sf.original_file_name, sf.revision, s.symbolic, s.date_notified, s.date_completed, s.user_id, s.signoff_id FROM submission_files sf, signoffs s WHERE s.assoc_type=? AND s.assoc_id=sf.file_id AND s.symbolic IN (?, ?)',
             [ASSOC_TYPE_SUBMISSION_FILE, 'SIGNOFF_COPYEDITING', 'SIGNOFF_PROOFING']
         );
@@ -553,7 +552,6 @@ class Upgrade extends Installer
     private function _transferSignoffData($signoffId, $queryId)
     {
         $noteDao = DAORegistry::getDAO('NoteDAO'); /* @var $noteDao NoteDAO */
-        $submissionFileDao = DAORegistry::getDAO('SubmissionFileDAO'); /* @var $submissionFileDao SubmissionFileDAO */
         $userDao = DAORegistry::getDAO('UserDAO'); /* @var $userDao UserDAO */
 
         $notes = $noteDao->getByAssoc(1048582 /* ASSOC_TYPE_SIGNOFF */, $signoffId);
@@ -568,13 +566,18 @@ class Upgrade extends Installer
                 'assocIds' => [$note->getId()],
             ]);
             foreach ($submissionFilesIterator as $submissionFile) {
-                $submissionFile->setData('fileStage', SubmissionFile::SUBMISSION_FILE_QUERY);
-                $submissionFileDao->updateObject($submissionFile);
+                Repo::submissionFiles()
+                    ->edit(
+                        $submissionFile,
+                        [
+                            'file_stage' => SubmissionFile::SUBMISSION_FILE_QUERY
+                        ]
+                    );
             }
         }
 
         // Transfer signoff signoffs into notes
-        $signoffsResult = $submissionFileDao->retrieve(
+        $signoffsResult = DB::select(
             'SELECT * FROM signoffs WHERE symbolic = ? AND assoc_type = ? AND assoc_id = ?',
             ['SIGNOFF_SIGNOFF', 1048582 /* ASSOC_TYPE_SIGNOFF */, $signoffId]
         );
@@ -594,10 +597,11 @@ class Upgrade extends Installer
                 $note->setDateCreated(Core::getCurrentDate());
                 $noteDao->updateObject($note);
             }
-            $submissionFileDao->update('DELETE FROM signoffs WHERE signoff_id=?', [$metaSignoffId]);
+
+            DB::update('DELETE FROM signoffs WHERE signoff_id=?', [$metaSignoffId]);
         }
 
-        $submissionFileDao->update('DELETE FROM signoffs WHERE signoff_id=?', [$signoffId]);
+        DB::update('DELETE FROM signoffs WHERE signoff_id=?', [$signoffId]);
     }
 
     /**
